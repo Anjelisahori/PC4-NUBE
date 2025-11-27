@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db 
+      - DB_USER=admin
+      - DB_PASSWORD=Password123!
+      - DB_NAME=pc4_db
+    depends_on:
+      - db
+  
+  db:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: Password123!
+      MYSQL_DATABASE: pc4_db
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: Password123!
+    ports:
+      - "3307:3306"
+      

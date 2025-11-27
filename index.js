@@ -8,25 +8,28 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// --- CONFIGURACIÓN BASE DE DATOS ---
+// --- ⚠️ CONFIGURACIÓN OBLIGADA A RDS (CAMBIO CLAVE) ---
 const dbConfig = {
-    host: process.env.DB_HOST || 'db',
-    user: process.env.DB_USER || 'admin',
-    password: process.env.DB_PASSWORD || 'Password123!',
-    database: process.env.DB_NAME || 'pc4_db'
+    host: 'pc4-db.cz4kogg2gqn4.us-east-2.rds.amazonaws.com', // <--- TU RDS REAL CONECTADO
+    user: 'admin',
+    password: 'Password123!',
+    database: 'pc4_db'
 };
 
 let db;
 function connectWithRetry() {
+    console.log("🔄 Intentando conectar a AWS RDS...");
     db = mysql.createConnection(dbConfig);
+    
     db.connect(err => {
         if (err) {
-            console.error('❌ Error BD, reintentando en 5s...', err.code);
+            console.error('❌ Error conectando a RDS, reintentando en 5s...', err.message);
             setTimeout(connectWithRetry, 5000);
             return;
         }
-        console.log("✅ Conectado a BD:", dbConfig.host);
+        console.log("✅ ¡CONEXIÓN EXITOSA A RDS AWS!");
         
+        // Crear tabla 'usuarios' si no existe
         const sql = `CREATE TABLE IF NOT EXISTS usuarios (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(255) UNIQUE NOT NULL,
@@ -37,13 +40,13 @@ function connectWithRetry() {
         
         db.query(sql, (err) => {
             if (err) console.error('❌ Error creando tabla:', err);
-            else console.log('✅ Tabla usuarios verificada/creada');
+            else console.log('✅ Tabla usuarios verificada en la Nube');
         });
     });
 }
 connectWithRetry();
 
-// --- ESTILOS CSS COMPARTIDOS ---
+// --- ESTILOS CSS COMPARTIDOS (DISEÑO BONITO) ---
 const commonCSS = `
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
@@ -68,12 +71,12 @@ const commonCSS = `
 </style>
 `;
 
-// --- RUTA RAÍZ (REDIRECCIÓN) ---
+// --- RUTA RAÍZ ---
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
 
-// --- PÁGINA DE LOGIN (GET) ---
+// --- LOGIN (GET) ---
 app.get('/login', (req, res) => {
     res.send(`
     <html><head><title>Iniciar Sesión</title>${commonCSS}</head><body>
@@ -92,7 +95,7 @@ app.get('/login', (req, res) => {
     </body></html>`);
 });
 
-// --- PÁGINA DE REGISTRO (GET) ---
+// --- REGISTRO (GET) ---
 app.get('/register', (req, res) => {
     res.send(`
     <html><head><title>Crear Cuenta</title>${commonCSS}</head><body>
@@ -110,7 +113,7 @@ app.get('/register', (req, res) => {
     </body></html>`);
 });
 
-// --- LÓGICA REGISTRO (POST) ---
+// --- REGISTRO (POST) ---
 app.post('/register', (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.send(renderError("Por favor completa todos los campos"));
@@ -130,7 +133,7 @@ app.post('/register', (req, res) => {
             <html><head><title>Éxito</title>${commonCSS}</head><body>
                 <div class="card">
                     <h1 style="color:#4CAF50;">🎉 ¡Registro Exitoso!</h1>
-                    <div class="success-msg">Usuario creado en Base de Datos AWS RDS.</div>
+                    <div class="success-msg">Usuario guardado en AWS RDS.</div>
                     <p><strong>1. Escanea este código con Google Authenticator:</strong></p>
                     <div class="qr-container"><img src="${data_url}"></div>
                     <br>
@@ -142,7 +145,7 @@ app.post('/register', (req, res) => {
     });
 });
 
-// --- LÓGICA LOGIN (POST) ---
+// --- LOGIN (POST) ---
 app.post('/login', (req, res) => {
     const { username, password, token } = req.body;
     if (!username || !password || !token) return res.send(renderError("Faltan datos"));
@@ -162,20 +165,18 @@ app.post('/login', (req, res) => {
     });
 });
 
-// --- PÁGINA ÉXITO (DASHBOARD) ---
 function successPage(user) {
     const now = new Date();
     return `
     <html><head><title>Bienvenido</title>${commonCSS}</head><body>
         <div class="card">
             <h1>🎉 ¡Bienvenido, ${user.username}!</h1>
-            <div class="success-msg">Autenticación de 2 Factores Correcta</div>
+            <div class="success-msg">Conexión Segura AWS RDS Confirmada</div>
             
             <div style="background:#f1f1f1; padding:15px; border-radius:10px; text-align:left; margin:20px 0;">
                 <p style="margin:5px 0"><strong>🆔 ID Usuario:</strong> #${user.id}</p>
                 <p style="margin:5px 0"><strong>📅 Registro:</strong> ${new Date(user.fecha_registro).toLocaleDateString()}</p>
-                <p style="margin:5px 0"><strong>⏰ Hora Acceso:</strong> ${now.toLocaleTimeString()}</p>
-                <p style="margin:5px 0"><strong>☁️ Fuente:</strong> AWS RDS MySQL</p>
+                <p style="margin:5px 0"><strong>☁️ Base de Datos:</strong> Conectado a RDS (us-east-2)</p>
             </div>
             
             <a href="/login"><button style="background:#555;">Cerrar Sesión</button></a>
@@ -183,7 +184,6 @@ function successPage(user) {
     </body></html>`;
 }
 
-// --- PÁGINA ERROR ---
 function renderError(msg) {
     return `<html><head><title>Error</title>${commonCSS}</head><body>
         <div class="card">
